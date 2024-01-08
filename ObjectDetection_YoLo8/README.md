@@ -37,3 +37,6 @@ Tekan 'q' untuk keluar dari inferensi pada file video.
 - Periksa bahwa path file video benar di dalam `main_mp4.py`.
 - Pastikan indeks webcam benar di dalam `main_webcam.py`.
 - Perbarui dependensi jika diperlukan dengan `pip install --upgrade opencv-python ultralytics`.
+
+## Referensi
+- 📚 https://docs.ultralytics.com/modes/predict/#thread-safe-inference
