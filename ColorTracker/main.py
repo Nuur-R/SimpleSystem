@@ -8,79 +8,75 @@ colors = [
 ]
 
 def detect_color(frame, color_data):
-    # Ubah citra dari BGR ke HSV
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    mask = np.zeros_like(frame[:,:,0])  # Use only one channel
 
-    # Inisialisasi mask kosong
-    mask = np.zeros_like(frame[:,:,0])  # Gunakan hanya satu channel
+    best_contour, best_area = None, 0
 
-    # Inisialisasi variabel untuk menyimpan data dot terbaik
-    best_contour = None
-    best_area = 0
-
-    # Loop melalui setiap warna
     for color_info in color_data:
         lower, upper, label, color_code = color_info["lower"], color_info["upper"], color_info["label"], color_info["color_code"]
         
-        # Buat mask untuk setiap rentang warna dan tambahkan ke mask total
         color_mask = cv2.inRange(hsv, np.array(lower), np.array(upper))
         mask += color_mask
 
-        # Temukan kontur warna yang terdeteksi
         contours, _ = cv2.findContours(color_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        # Loop melalui setiap kontur dan simpan yang terbaik
         for contour in contours:
             area = cv2.contourArea(contour)
             if area > best_area:
                 best_contour = contour
                 best_area = area
 
-    # Gambar titik tengah dan label untuk dot terbaik
-    if best_area > 500:
+    return mask, best_contour, best_area
+
+def determine_position(frame_width, cx):
+    if cx < frame_width // 3:
+        return "Kiri"
+    elif cx > 2 * frame_width // 3:
+        return "Kanan"
+    else:
+        return "Tengah"
+
+def draw_regions(frame, left_region, center_region, best_contour, label, color_code):
+    cv2.rectangle(frame, left_region[0], left_region[1], (0, 0, 255), 2)    # Red for left
+    cv2.rectangle(frame, center_region[0], center_region[1], (0, 0, 255), 2)  # Red for center
+
+    if best_contour is not None:
         M = cv2.moments(best_contour)
         if M["m00"] != 0:
             cx = int(M["m10"] / M["m00"])
             cy = int(M["m01"] / M["m00"])
-            
-            # Menentukan posisi dot di kiri, tengah, atau kanan
-            width, _ = frame.shape[1], frame.shape[0]
-            position = "Tengah"
-            if cx < width // 3:
-                position = "Kiri"
-            elif cx > 2 * width // 3:
-                position = "Kanan"
 
             cv2.circle(frame, (cx, cy), 10, color_code, -1)
+            position = determine_position(frame.shape[1], cx)
             cv2.putText(frame, f"{label} - {position}", (cx - 60, cy - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color_code, 2)
 
-    return frame
-
 def main():
-    # Inisialisasi webcam
     cap = cv2.VideoCapture(0)
 
     try:
         while True:
-            # Baca frame dari webcam
             ret, frame = cap.read()
 
             if not ret:
                 print("Gagal membaca frame, pastikan webcam terhubung.")
                 break
 
-            # Deteksi warna
-            result_frame = detect_color(frame, colors)
+            height, width, _ = frame.shape
+            left_region = [(width // 3, 0), (width // 3, height)]
+            center_region = [(2 * width // 3, 0), (2 * width // 3, height)]
 
-            # Tampilkan hasil
-            cv2.imshow("Color Detection", result_frame)
+            mask, best_contour, best_area = detect_color(frame, colors)
 
-            # Hentikan program dengan menekan tombol 'q'
+            # Draw regions using the active color from the colors array
+            draw_regions(frame, left_region, center_region, best_contour, colors[0]["label"], colors[0]["color_code"])
+
+            cv2.imshow("Color Detection", frame)
+
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
     finally:
-        # Tutup webcam dan jendela tampilan
         cap.release()
         cv2.destroyAllWindows()
 
